@@ -1,0 +1,21 @@
+cat > .gitignore << 'EOF'
+# venv
+.venv/
+venv/
+
+# secrets
+.env
+
+# sqlite на всякий случай
+*.db
+
+# python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.log
+
+# OS
+.DS_Store
+EOF
