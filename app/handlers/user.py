@@ -10,7 +10,8 @@ from ..config import config
 from ..db import SessionLocal
 from ..antispam import check_and_hit
 from ..models import User, Comment, CommentMedia, Channel
-from ..utils import build_post_link
+from ..utils import build_post_link, refresh_comment_button
+
 
 router = Router()
 print("✅ handlers/user.py подключён")
@@ -460,6 +461,8 @@ async def user_text(m: Message):
 
     _pending.pop(m.from_user.id, None)
     await m.answer("✅ Готово! Комментарий отправлен.\nОтветьте на это сообщение, чтобы написать Администратору.")
+        # после session.commit() нового Comment
+    await refresh_comment_button(m.bot, cid, pid)
 
 # ===================== ПОЛЬЗОВАТЕЛЬ -> АДМИН (медиа/альбом) =====================
 @router.message(F.chat.type == ChatType.PRIVATE, (F.photo | F.video | F.document | F.voice | F.audio | F.video_note))
@@ -543,6 +546,8 @@ async def user_media(m: Message):
                     media_group_id=g
                 ))
             await session.commit()
+            # после session.commit() нового Comment
+            await refresh_comment_button(m.bot, cid, pid)
 
         # Буфер альбома для админа
         _u2a_buf[mgid].append(m)
@@ -572,6 +577,8 @@ async def user_media(m: Message):
                     media_group_id=None
                 ))
             await session.commit()
+            # после session.commit() нового Comment
+            await refresh_comment_button(m.bot, cid, pid)
 
         # Отправка админу: фото/видео/док/аудио — с подписью; voice/кружок — копия + якорь
         if m.photo:

@@ -1,11 +1,11 @@
 from aiogram import Router
 from aiogram.types import Message, ReactionTypeEmoji, ReactionTypeCustomEmoji
 from aiogram.exceptions import TelegramBadRequest
-from sqlalchemy import select
+from sqlalchemy import select, func
 from ..config import config
 from ..db import SessionLocal
 from ..keyboards import comment_kb
-from ..models import Channel
+from ..models import Channel, Comment
 import asyncio, random
 
 router = Router()
@@ -67,12 +67,12 @@ async def _try_set_reactions(bot, chat_id: int, msg_id: int):
         print(f"⚠️ Не удалось поставить реакцию после {attempts} попыток:", last_err)
     return False
 
+
 @router.channel_post()
 async def on_channel_post(msg: Message):
     if msg.chat.id not in config.allowed_channels:
         return
 
-    # Обновляем/создаём запись канала
     async with SessionLocal() as session:
         ch = (await session.execute(select(Channel).where(Channel.chat_id == msg.chat.id))).scalar_one_or_none()
         if not ch:
@@ -83,12 +83,19 @@ async def on_channel_post(msg: Message):
             ch.title = msg.chat.title
         await session.commit()
 
-    # Вешаем кнопку
+        # текущий счётчик комментов для этого поста (обычно 0)
+        count = await session.scalar(
+            select(func.count(Comment.id)).where(
+                Comment.channel_chat_id == msg.chat.id,
+                Comment.post_id == msg.message_id
+            )
+        ) or 0
+
     try:
         await msg.bot.edit_message_reply_markup(
             chat_id=msg.chat.id,
             message_id=msg.message_id,
-            reply_markup=comment_kb(msg.chat.id, msg.message_id)
+            reply_markup=comment_kb(msg.chat.id, msg.message_id, count=count)
         )
     except TelegramBadRequest:
         pass
